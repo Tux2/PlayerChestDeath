@@ -1,5 +1,40 @@
-name: PlayerChestDeath
+name: DeadMansChest
 main: com.wesnc.playerchestdeath.ChestDeath
-version: 0.3
-
+version: 0.4
 softdepend: [LWC]
+
+# SuperPerms data
+permissions:
+    deadmanschest.player:
+        default: true
+        description: Gives access to all options, except for persistent chests.
+        children:
+            deadmanschest.chest: true
+            deadmanschest.drops: true
+            deadmanschest.message: true
+            deadmanschest.lock: true
+            deadmanschest.beacon: true
+    deadmanschest.admin:
+        default: op
+        description: Gives access to all options, including persistent chests.
+        children:
+            deadmanschest.player: true
+            deadmanschest.nodelete: true
+    deadmanschest.chest:
+        description: Allows you to have a death chest.
+        default: true
+    deadmanschest.drops:
+        description: Allows anything that doesn't fit in the chest to drop naturally.
+        default: true
+    deadmanschest.message:
+        description: Announce this player's death.
+        default: true
+    deadmanschest.lock:
+        description: If LWC is enabled this player can get a locked chest.
+        default: true
+    deadmanschest.beacon:
+        description: Allows a beacon tower to be built for this player.
+        default: true
+    deadmanschest.nodelete:
+        description: Exempts this player's chests from being deleted.
+        default: op
