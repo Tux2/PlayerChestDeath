@@ -1,3 +1,5 @@
 name: PlayerChestDeath
 main: com.wesnc.playerchestdeath.ChestDeath
-version: 0.2
+version: 0.3
+
+softdepend: [LWC]

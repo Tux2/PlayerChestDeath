@@ -1,9 +1,13 @@
 package com.wesnc.playerchestdeath;
 
+import java.util.LinkedList;
+import java.util.List;
+
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Chest;
 import org.bukkit.block.Sign;
@@ -12,6 +16,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityListener;
 import org.bukkit.inventory.ItemStack;
+
+import com.griefcraft.model.Protection;
 
 public class EntLis extends EntityListener
 {
@@ -30,180 +36,159 @@ public class EntLis extends EntityListener
 		{
 			Player player = (Player)entity;
 			Location lastLoc = player.getLocation();
-			final Block block = lastLoc.getBlock();
-			
+			Block block = lastLoc.getBlock();
+
+			LinkedList<Block> changedblocks = new LinkedList<Block>();
+			Block tsignblock = null;
 			//chest related
 			block.setType(Material.CHEST);
+			changedblocks.add(block);
+			plugin.nodropblocks.add(block);
 			BlockState state = block.getState();
-			final Chest chest = (Chest)state;
+			Chest chest = (Chest)state;
+			Block protectionblock = null;
 			
 			Location chestLocation = chest.getBlock().getLocation();
-			Location newLocation = chestLocation.add(0.0, 0.0, 1.0);
 			
-			//-----------------------------------------------------------
-			final Block signBlock = newLocation.getBlock();
-			signBlock.setTypeIdAndData(68, (byte)0x3, false);
-			BlockState signState = signBlock.getState();
-			final Sign sign = (Sign)signState;
-			//-----------------------------------------------------------
-			
-			
-			for(ItemStack item : event.getDrops())
+			int j = 0;
+			List<ItemStack> items = event.getDrops();
+			for(int i = 0; i < items.size() && j < 27; i++)
 			{
-				if(item == null) continue;
-				
-				chest.getInventory().addItem(item);
+				ItemStack item = items.get(i);
+				if(item != null && item.getType() != Material.AIR) {
+					System.out.println("Adding item " + item.getType().toString() + " to chest.");
+					chest.getInventory().addItem(item);
+					items.remove(i);
+					//A little hack to make sure the pointer is pointing to the right place...
+					i--;
+					j++;
+				}
 			}
 			
-			if(this.plugin.drops == false)
+			if(!this.plugin.drops)
 			{
-				
 				event.getDrops().clear();
 			}
 			
-			if(this.plugin.deathMessage == true)
+			if(this.plugin.deathMessage)
 			{
 				this.plugin.getServer().broadcastMessage(ChatColor.RED + player.getDisplayName() + ChatColor.WHITE + " " + this.plugin.deathMessageString);
 			}
 			
-			if(this.plugin.SignOnChest == true)
+			if(this.plugin.LWC_Enabled && plugin.lwc != null)
 			{
-				/*
-				//sign related
-				Location chestLocation = chest.getBlock().getLocation();
-				Location newLocation = chestLocation.add(0.0, 0.0, 1.0);
+				int blockId = chest.getTypeId();
+				int type = 0;
+				String world = chest.getWorld().getName();
+				String owner = player.getName();
+				String password = "";
+				int x = chest.getX();
+				int y = chest.getY();
+				int z = chest.getZ();
 				
-				//-----------------------------------------------------------
-				Block signBlock = newLocation.getBlock();
-				signBlock.setTypeIdAndData(68, (byte)0x3, false);
-				BlockState signState = signBlock.getState();
-				Sign sign = (Sign)signState;
-				//-----------------------------------------------------------
-				*/
-				if(this.plugin.SignLockette_Enabled == true)
+				if(this.plugin.LWC_PrivateDefault)
 				{
-					if(this.plugin.SignLockette_PrivateDefault == true)
-					{
-						
-						sign.setLine(0, "[Private]");
-						sign.setLine(1, player.getDisplayName());
-						sign.update();
-					}
-					else
-					{
-						
-						sign.setLine(0, "[Everyone]");
-						sign.setLine(1, player.getDisplayName());
-						sign.update();
-					}
+					type = com.griefcraft.model.ProtectionTypes.PRIVATE;
 				}
 				else
 				{
+					type = com.griefcraft.model.ProtectionTypes.PUBLIC;
+				}
+				plugin.lwc.getPhysicalDatabase().registerProtection(blockId, type, world, owner, password, x, y, z);
+				protectionblock = block;
+			}
+			
+			if(this.plugin.SignOnChest)
+			{
+				boolean foundair = false;
+				BlockFace[] directions = {BlockFace.EAST,BlockFace.WEST,BlockFace.NORTH,BlockFace.SOUTH};
+				byte[] signbyte = {0x2,0x3,0x4,0x5};
+				int signdirection = 1;
+				for(int i = 0; i < directions.length && !foundair; i++) {
+					if(plugin.LiquidReplace) {
+						//If we can replace water, let's do it with the sign too!
+						Block tempblock = block.getRelative(directions[i]);
+						if(tempblock.getType() == Material.AIR|| tempblock.getType() == Material.WATER 
+								|| tempblock.getType() == Material.STATIONARY_WATER
+								|| tempblock.getType() == Material.LAVA 
+								|| tempblock.getType() == Material.STATIONARY_LAVA) {
+							signdirection = i;
+							foundair = true;
+						}
+					}else {
+						if(block.getRelative(directions[i]).getType() == Material.AIR) {
+							signdirection = i;
+							foundair = true;
+						}
+					}
+				}
+				
+				if(foundair) {
+					//-----------------------------------------------------------
+					Block signBlock = block.getRelative(directions[signdirection]);
+					signBlock.setTypeIdAndData(68, signbyte[signdirection], false);
+					BlockState signState = signBlock.getState();
+					Sign sign = (Sign)signState;
+					//-----------------------------------------------------------
+					
 					sign.setLine(0, player.getDisplayName()+"'s");
 					sign.setLine(1, "Deathpile");
 					sign.update();
-				}
-				/*
-				if(this.plugin.ChestDeleteIntervalEnabled == true)
-				{
-					int delay = this.plugin.ChestDeleteInterval;
+					changedblocks.add(signBlock);
+					plugin.nodropblocks.add(signBlock);
+					plugin.signblocks.put(block, signBlock);
+				}else {
+					// If we didn't find a free spot, let's put the sign above the chest...
+					// Will probably look very ugly though and pop off anyways...
+					//-----------------------------------------------------------
+					Block signBlock = block.getRelative(BlockFace.UP);
+					signBlock.setTypeIdAndData(63, signbyte[signdirection], false);
+					BlockState signState = signBlock.getState();
+					Sign sign = (Sign)signState;
+					//-----------------------------------------------------------
 					
-					this.plugin.getServer().getScheduler().scheduleSyncDelayedTask(this.plugin, new Runnable() {
-
-					    public void run() 
-					    {
-					    	signBlock.setType(Material.AIR);
-					    }
-					}, delay);
-				}
-				*/
-				
-			}
-			//LOL just MCGYVERING UP A QUICK FUNCTION FOR TESTING, DONT FUSS AT ME
-			if(this.plugin.Sign_BeaconEnabled == true)
-			{
-				int height = this.plugin.Sign_BeaconHeight;
-				
-				if(height == 10)
-				{
-					Location chestLocation1 = block.getLocation();
-					
-					Location up = chestLocation1.add(0.0, 2.0, 0.0);
-					final Block upBlock = up.getBlock();
-					upBlock.setType(Material.GLOWSTONE);
-					
-					Location up2 = up.add(0.0, 1.0, 0.0);
-					final Block upBlock2 = up2.getBlock();
-					upBlock2.setType(Material.GLOWSTONE);
-					
-					Location up3 = up2.add(0.0, 1.0, 0.0);
-					final Block upBlock3 = up3.getBlock();
-					upBlock3.setType(Material.GLOWSTONE);
-					
-					Location up4 = up3.add(0.0, 1.0, 0.0);
-					final Block upBlock4 = up4.getBlock();
-					upBlock4.setType(Material.GLOWSTONE);
-					
-					Location up5 = up4.add(0.0, 1.0, 0.0);
-					final Block upBlock5 = up5.getBlock();
-					upBlock5.setType(Material.GLOWSTONE);
-					
-					Location up6 = up5.add(0.0, 1.0, 0.0);
-					final Block upBlock6 = up6.getBlock();
-					upBlock6.setType(Material.GLOWSTONE);
-					
-					Location up7 = up6.add(0.0, 1.0, 0.0);
-					final Block upBlock7 = up7.getBlock();
-					upBlock7.setType(Material.GLOWSTONE);
-					
-					Location up8 = up7.add(0.0, 1.0, 0.0);
-					final Block upBlock8 = up8.getBlock();
-					upBlock8.setType(Material.GLOWSTONE);
-					
-					Location up9 = up8.add(0.0, 1.0, 0.0);
-					final Block upBlock9 = up9.getBlock();
-					upBlock9.setType(Material.GLOWSTONE);
-					
-					Location up10 = up9.add(0.0, 1.0, 0.0);
-					final Block upBlock10 = up10.getBlock();
-					upBlock10.setType(Material.GLOWSTONE);
-					
-					if(this.plugin.ChestDeleteIntervalEnabled == true)
-					{
-						int delay = this.plugin.ChestDeleteInterval*20;
-						this.plugin.getServer().getScheduler().scheduleAsyncDelayedTask(this.plugin, new Runnable() {
-
-							@Override
-							public void run()
-							{
-								upBlock.setType(Material.AIR);
-								upBlock2.setType(Material.AIR);
-								upBlock3.setType(Material.AIR);
-								upBlock4.setType(Material.AIR);
-								upBlock5.setType(Material.AIR);
-								upBlock6.setType(Material.AIR);
-								upBlock7.setType(Material.AIR);
-								upBlock8.setType(Material.AIR);
-								upBlock9.setType(Material.AIR);
-								upBlock10.setType(Material.AIR);
-		
-							}}, delay);
-					}
+					sign.setLine(0, player.getDisplayName()+"'s");
+					sign.setLine(1, "Deathpile");
+					sign.update();
+					changedblocks.add(signBlock);
+					plugin.nodropblocks.add(signBlock);
+					plugin.signblocks.put(block, signBlock);
 				}
 			}
 			
-			if(this.plugin.ChestDeleteIntervalEnabled == true)
+			if(this.plugin.Sign_BeaconEnabled)
+			{
+				int height = this.plugin.Sign_BeaconHeight;
+				Location chestLocation1 = block.getLocation();
+				
+				Location firstlocation = chestLocation1.add(0.0, 2.0, 0.0);
+				Block nextblock = firstlocation.getBlock();
+				
+				for(int i = 0; i < height; i++) {
+					if(plugin.LiquidReplace) {
+						if(nextblock.getType() == Material.AIR || nextblock.getType() == Material.WATER 
+								|| nextblock.getType() == Material.STATIONARY_WATER
+								|| nextblock.getType() == Material.LAVA 
+								|| nextblock.getType() == Material.STATIONARY_LAVA ) {
+							nextblock.setType(Material.GLOWSTONE);
+							plugin.nodropblocks.add(nextblock);
+							changedblocks.add(nextblock);
+						}
+					}else {
+						if(nextblock.getType() == Material.AIR) {
+							nextblock.setType(Material.GLOWSTONE);
+							plugin.nodropblocks.add(nextblock);
+							changedblocks.add(nextblock);
+						}
+					}
+					nextblock = nextblock.getRelative(BlockFace.UP);
+				}
+			}
+			
+			if(this.plugin.ChestDeleteIntervalEnabled)
 			{
 				int delay = this.plugin.ChestDeleteInterval*20;
-				this.plugin.getServer().getScheduler().scheduleSyncDelayedTask(this.plugin, new Runnable(){
-
-					@Override
-					public void run()
-					{
-						block.setType(Material.AIR);
-						signBlock.setType(Material.AIR);
-						
-					}}, delay);
+				this.plugin.getServer().getScheduler().scheduleSyncDelayedTask(this.plugin, new RemoveChest(plugin, changedblocks, protectionblock), delay);
 				
 			}
 	
