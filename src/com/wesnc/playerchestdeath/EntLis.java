@@ -8,191 +8,88 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.block.BlockState;
-import org.bukkit.block.Chest;
-import org.bukkit.block.Sign;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityListener;
 import org.bukkit.inventory.ItemStack;
 
-import com.griefcraft.model.Protection;
-
 public class EntLis extends EntityListener
 {
 	public ChestDeath plugin;
 	
-	public EntLis(ChestDeath instance)
-	{
+	public EntLis(ChestDeath instance) {
 		plugin = instance;
 	}
 	
-	public void onEntityDeath(EntityDeathEvent event)
-	{
+	public void onEntityDeath(EntityDeathEvent event) {
 		Entity entity = event.getEntity();
 		
-		if(entity instanceof Player)
-		{
+		if(entity instanceof Player) {
 			Player player = (Player)entity;
 			if(plugin.hasPermissions(player, "deadmanschest.chest")) {
-
 				Location lastLoc = player.getLocation();
 				Block block = lastLoc.getBlock();
-
-				LinkedList<Block> changedblocks = new LinkedList<Block>();
-				Block tsignblock = null;
-				//chest related
-				block.setType(Material.CHEST);
-				changedblocks.add(block);
-				plugin.nodropblocks.add(block);
-				BlockState state = block.getState();
-				Chest chest = (Chest)state;
-				Block protectionblock = null;
-				
-				Location chestLocation = chest.getBlock().getLocation();
-				
+				//See if the block we are on is a block we can safely write over...
+				if(!plugin.airblocks.contains(block.getType())) {
+					//Must not be, let's go a block up and see if that one is free...
+					Block tempblock = block.getRelative(BlockFace.UP);
+					if(plugin.airblocks.contains(tempblock.getType())) {
+						block = tempblock;
+					}else {
+						//We can't find an open spot, so just spill the stuff on the ground...
+						return;
+					}
+				}
+				boolean doublechest = false;
 				int j = 0;
 				List<ItemStack> items = event.getDrops();
-				for(int i = 0; i < items.size() && j < 27; i++)
-				{
+				LinkedList<ItemStack> addeditems = new LinkedList<ItemStack>();
+				int i;
+				for(i = 0; i < items.size() && j < 27; i++)	{
 					ItemStack item = items.get(i);
 					if(item != null && item.getType() != Material.AIR) {
-						System.out.println("Adding item " + item.getType().toString() + " to chest.");
-						chest.getInventory().addItem(item);
+						addeditems.add(item);
 						items.remove(i);
 						//A little hack to make sure the pointer is pointing to the right place...
 						i--;
 						j++;
 					}
 				}
+				//The player is carrying too many items to fit in one chest. Let's make it a double chest (if they have permission).
+				if(j == 27 && plugin.hasPermissions(player, "deadmanschest.doublechest")) {
+					BlockFace[] direction = {BlockFace.EAST, BlockFace.WEST, BlockFace.NORTH, BlockFace.SOUTH};
+					boolean noroom = true;
+					for(int y = 0; y < direction.length && noroom; y++) {
+						Block tempblock = block.getRelative(direction[y]);
+						if(plugin.airblocks.contains(tempblock.getType())) {
+							//we have an adjacent empty block, let's go ahead and add those items to another chest!
+							for(; i < items.size(); i++)	{
+								ItemStack item = items.get(i);
+								if(item != null && item.getType() != Material.AIR) {
+									addeditems.add(item);
+									items.remove(i);
+									//A little hack to make sure the pointer is pointing to the right place...
+									i--;
+									j++;
+								}
+							}
+							//Let's exit the loop.
+							noroom = false;
+							doublechest = true;
+						}
+					}
+				}
 				
-				if(!this.plugin.drops && !plugin.hasPermissions(player, "deadmanschest.drops"))
-				{
+				if(!this.plugin.drops && !plugin.hasPermissions(player, "deadmanschest.drops"))	{
 					event.getDrops().clear();
 				}
 				
-				if(this.plugin.deathMessage && plugin.hasPermissions(player, "deadmanschest.message"))
-				{
+				if(this.plugin.deathMessage && plugin.hasPermissions(player, "deadmanschest.message")) {
 					this.plugin.getServer().broadcastMessage(ChatColor.RED + player.getDisplayName() + ChatColor.WHITE + " " + this.plugin.deathMessageString);
 				}
-				
-				if(this.plugin.LWC_Enabled && plugin.lwc != null && plugin.hasPermissions(player, "deadmanschest.lock"))
-				{
-					int blockId = chest.getTypeId();
-					int type = 0;
-					String world = chest.getWorld().getName();
-					String owner = player.getName();
-					String password = "";
-					int x = chest.getX();
-					int y = chest.getY();
-					int z = chest.getZ();
-					
-					if(this.plugin.LWC_PrivateDefault)
-					{
-						type = com.griefcraft.model.ProtectionTypes.PRIVATE;
-					}
-					else
-					{
-						type = com.griefcraft.model.ProtectionTypes.PUBLIC;
-					}
-					plugin.lwc.getPhysicalDatabase().registerProtection(blockId, type, world, owner, password, x, y, z);
-					protectionblock = block;
-				}
-				
-				if(this.plugin.SignOnChest)
-				{
-					boolean foundair = false;
-					BlockFace[] directions = {BlockFace.EAST,BlockFace.WEST,BlockFace.NORTH,BlockFace.SOUTH};
-					byte[] signbyte = {0x2,0x3,0x4,0x5};
-					int signdirection = 1;
-					for(int i = 0; i < directions.length && !foundair; i++) {
-						if(plugin.LiquidReplace) {
-							//If we can replace water, let's do it with the sign too!
-							Block tempblock = block.getRelative(directions[i]);
-							if(tempblock.getType() == Material.AIR|| tempblock.getType() == Material.WATER 
-									|| tempblock.getType() == Material.STATIONARY_WATER
-									|| tempblock.getType() == Material.LAVA 
-									|| tempblock.getType() == Material.STATIONARY_LAVA) {
-								signdirection = i;
-								foundair = true;
-							}
-						}else {
-							if(block.getRelative(directions[i]).getType() == Material.AIR) {
-								signdirection = i;
-								foundair = true;
-							}
-						}
-					}
-					
-					if(foundair) {
-						//-----------------------------------------------------------
-						Block signBlock = block.getRelative(directions[signdirection]);
-						signBlock.setTypeIdAndData(68, signbyte[signdirection], false);
-						BlockState signState = signBlock.getState();
-						Sign sign = (Sign)signState;
-						//-----------------------------------------------------------
-						
-						sign.setLine(0, player.getDisplayName()+"'s");
-						sign.setLine(1, "Deathpile");
-						sign.update();
-						changedblocks.add(signBlock);
-						plugin.nodropblocks.add(signBlock);
-						plugin.signblocks.put(block, signBlock);
-					}else {
-						// If we didn't find a free spot, let's put the sign above the chest...
-						// Will probably look very ugly though and pop off anyways...
-						//-----------------------------------------------------------
-						Block signBlock = block.getRelative(BlockFace.UP);
-						signBlock.setTypeIdAndData(63, signbyte[signdirection], false);
-						BlockState signState = signBlock.getState();
-						Sign sign = (Sign)signState;
-						//-----------------------------------------------------------
-						
-						sign.setLine(0, player.getDisplayName()+"'s");
-						sign.setLine(1, "Deathpile");
-						sign.update();
-						changedblocks.add(signBlock);
-						plugin.nodropblocks.add(signBlock);
-						plugin.signblocks.put(block, signBlock);
-					}
-				}
-				
-				if(this.plugin.Sign_BeaconEnabled && plugin.hasPermissions(player, "deadmanschest.beacon"))
-				{
-					int height = this.plugin.Sign_BeaconHeight;
-					Location chestLocation1 = block.getLocation();
-					
-					Location firstlocation = chestLocation1.add(0.0, 2.0, 0.0);
-					Block nextblock = firstlocation.getBlock();
-					
-					for(int i = 0; i < height; i++) {
-						if(plugin.LiquidReplace) {
-							if(nextblock.getType() == Material.AIR || nextblock.getType() == Material.WATER 
-									|| nextblock.getType() == Material.STATIONARY_WATER
-									|| nextblock.getType() == Material.LAVA 
-									|| nextblock.getType() == Material.STATIONARY_LAVA ) {
-								nextblock.setType(Material.GLOWSTONE);
-								plugin.nodropblocks.add(nextblock);
-								changedblocks.add(nextblock);
-							}
-						}else {
-							if(nextblock.getType() == Material.AIR) {
-								nextblock.setType(Material.GLOWSTONE);
-								plugin.nodropblocks.add(nextblock);
-								changedblocks.add(nextblock);
-							}
-						}
-						nextblock = nextblock.getRelative(BlockFace.UP);
-					}
-				}
-				
-				if(this.plugin.ChestDeleteIntervalEnabled && !plugin.hasPermissions(player, "deadmanschest.nodelete"))
-				{
-					int delay = this.plugin.ChestDeleteInterval*20;
-					this.plugin.getServer().getScheduler().scheduleSyncDelayedTask(this.plugin, new RemoveChest(plugin, changedblocks, protectionblock), delay);
-					
-				}
+
+				this.plugin.getServer().getScheduler().scheduleSyncDelayedTask(this.plugin, new CreateChest(plugin, block, addeditems, player, doublechest), 1);
 			}
 	
 		}

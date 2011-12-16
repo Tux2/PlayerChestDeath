@@ -13,15 +13,29 @@ public class RemoveChest implements Runnable {
 	ChestDeath plugin;
 	LinkedList<Block> changeblocks;
 	Block chestblock;
+	public Block chestblock2 = null;
+	int taskid = -1;
 
-	public RemoveChest(ChestDeath plugin, LinkedList<Block> changeblocks, Block chestblock) {
+	public RemoveChest(ChestDeath plugin, LinkedList<Block> changeblocks, Block chestblock, Block chestblock2) {
 		this.plugin = plugin;
 		this.changeblocks = changeblocks;
 		this.chestblock = chestblock;
+		this.chestblock2 = chestblock2;
 	}
 	
-	public void run()
-	{
+	public void setTaskID(int id) {
+		taskid = id;
+	}
+	
+	public int getTaskID() {
+		return taskid;
+	}
+	
+	public void run() {
+		removeTheChest();
+	}
+	
+	public void removeTheChest() {
 		//A little fix to fix the pop off signs...
 		Iterator<Block> rblocks = changeblocks.descendingIterator();
 		while(rblocks.hasNext()) {
@@ -37,6 +51,7 @@ public class RemoveChest implements Runnable {
 				protection.remove();
 			}
 		}
+		plugin.deathchests.remove(chestblock);
 	}
 	
 }

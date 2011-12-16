@@ -1,8 +1,9 @@
 package com.wesnc.playerchestdeath;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.Properties;
@@ -10,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
@@ -30,7 +32,9 @@ public class ChestDeath extends JavaPlugin
 	public File configFile = new File(mainDir+"Config.cfg");
 	public Properties prop = new Properties();
 	public LinkedList<Block> nodropblocks = new LinkedList<Block>();
-	public ConcurrentHashMap<Block, Block> signblocks = new ConcurrentHashMap<Block, Block>();
+	public ConcurrentHashMap<Block, RemoveChest> deathchests = new ConcurrentHashMap<Block, RemoveChest>();
+
+	public LinkedList<Material> airblocks = new LinkedList<Material>();
 	
 	EntLis entityListener = new EntLis(this);
 
@@ -44,7 +48,7 @@ public class ChestDeath extends JavaPlugin
 	public boolean drops = true;
 	public boolean mineabledrops = false;
 	public boolean deathMessage = true;
-	public String deathMessageString = "died and left a chest where he died.";
+	public String deathMessageString = "died. Deploying death chest.";
 	public boolean SignOnChest = true;
 	public boolean LWC_Enabled = true;
 	public boolean LWC_PrivateDefault =true;
@@ -53,19 +57,33 @@ public class ChestDeath extends JavaPlugin
 	public boolean LiquidReplace = true;
 	public int ChestDeleteInterval = 80;
 	public boolean ChestDeleteIntervalEnabled = true;
+	public boolean ChestLoot = false;
+	public String version = "0.5";
 
 	private static PermissionHandler Permissions;
 	
+	public ChestDeath() {
+
+		airblocks.add(Material.AIR);
+		//airblocks.add(Material.GRASS);
+		airblocks.add(Material.LONG_GRASS);
+		airblocks.add(Material.SNOW);
+		airblocks.add(Material.VINE);
+		airblocks.add(Material.WATER_LILY);
+		airblocks.add(Material.WATER);
+		airblocks.add(Material.STATIONARY_WATER);
+		airblocks.add(Material.LAVA);
+		airblocks.add(Material.STATIONARY_LAVA);
+	}
+	
 	@Override
-	public void onDisable()
-	{
+	public void onDisable()	{
 		logger.log(Level.INFO, "[DeadMansChest] unloaded.");
 		
 	}
 
 	@Override
-	public void onEnable()
-	{
+	public void onEnable() {
 		setupPermissions();
 		Plugin lwcPlugin = getServer().getPluginManager().getPlugin("LWC");
 		if(lwcPlugin != null) {
@@ -75,69 +93,62 @@ public class ChestDeath extends JavaPlugin
 		logger.log(Level.INFO, "[DeadMansChest] loaded.");
 		new File(mainDir).mkdir();
 		
-		if(!configFile.exists())
-		{
-			try
-			{
-				configFile.createNewFile();
-				FileOutputStream out = new FileOutputStream(configFile);
-				prop.put("DropsEnabled", "true");
-				prop.put("DeathMessage", "true");
-				prop.put("DeathMessageString", "died and left a chest where he died.");
-				prop.put("SignOnChest", "true");
-				prop.put("LWCEnabled", "true");
-				prop.put("LWCPrivateDefault", "true");
-				prop.put("BeaconEnabled", "true");
-				prop.put("BeaconHeight", "10");
-				prop.put("BeaconReplacesLiquid", "true");
-				prop.put("MineableDrops", "false");
-				prop.put("ChestDeleteIntervalEnabled", "true");
-				prop.put("ChestDeleteInterval", "80");
-				prop.store(out, configFileHeader);
-				out.flush();
-				out.close();
-			}
-			catch(IOException ex) {}
-		}
-		else
-		{
+		if(!configFile.exists()) {
+			updateIni();
+		}else {
 			loadConfig();
 		}
 
 		registerEvents();
 	}
 
-	private void loadConfig()
-	{
-		try
-		{
+	private void loadConfig() {
+		try	{
 			FileInputStream in = new FileInputStream(configFile);
 			prop.load(in);
 			
-			drops = Boolean.parseBoolean(prop.getProperty("DropsEnabled"));
-			deathMessage = Boolean.parseBoolean(prop.getProperty("DeathMessage"));
-			deathMessageString = prop.getProperty("DeathMessageString");
-			SignOnChest = Boolean.parseBoolean(prop.getProperty("SignOnChest"));
-			LWC_Enabled = Boolean.parseBoolean(prop.getProperty("LWCEnabled"));
-			LWC_PrivateDefault = Boolean.parseBoolean(prop.getProperty("LWCPrivateDefault"));
-			Sign_BeaconEnabled = Boolean.parseBoolean(prop.getProperty("BeaconEnabled"));
-			Sign_BeaconHeight = Integer.parseInt(prop.getProperty("BeaconHeight"));
-			LiquidReplace = Boolean.parseBoolean(prop.getProperty("BeaconReplacesLiquid"));
-			mineabledrops = Boolean.parseBoolean(prop.getProperty("MineableDrops"));
-			ChestDeleteInterval = Integer.parseInt(prop.getProperty("ChestDeleteInterval"));
-			ChestDeleteIntervalEnabled = Boolean.parseBoolean(prop.getProperty("ChestDeleteIntervalEnabled"));
+			drops = Boolean.parseBoolean(prop.getProperty("DropsEnabled", "true"));
+			deathMessage = Boolean.parseBoolean(prop.getProperty("DeathMessage", "true"));
+			deathMessageString = prop.getProperty("DeathMessageString", "died. Deploying death chest.");
+			SignOnChest = Boolean.parseBoolean(prop.getProperty("SignOnChest", "true"));
+			LWC_Enabled = Boolean.parseBoolean(prop.getProperty("LWCEnabled", "true"));
+			LWC_PrivateDefault = Boolean.parseBoolean(prop.getProperty("LWCPrivateDefault", "true"));
+			Sign_BeaconEnabled = Boolean.parseBoolean(prop.getProperty("BeaconEnabled", "true"));
+			try{
+				Sign_BeaconHeight = Integer.parseInt(prop.getProperty("BeaconHeight", "10"));
+			}catch (NumberFormatException e) {
+				System.out.println("[DeadMansChest] Couldn't process BeaconHeight, using default");
+			}
+			LiquidReplace = Boolean.parseBoolean(prop.getProperty("BeaconReplacesLiquid", "true"));
+			mineabledrops = Boolean.parseBoolean(prop.getProperty("MineableDrops", "false"));
+			try{
+				ChestDeleteInterval = Integer.parseInt(prop.getProperty("ChestDeleteInterval", "80"));
+			}catch (NumberFormatException e) {
+				System.out.println("[DeadMansChest] Couldn't process ChestDeleteInterval, using default");
+			}
+			ChestDeleteIntervalEnabled = Boolean.parseBoolean(prop.getProperty("ChestDeleteIntervalEnabled", "true"));
+			ChestLoot = Boolean.parseBoolean(prop.getProperty("ChestLoot", "false"));
+			double sversion = Double.parseDouble(prop.getProperty("version", "0.4"));
+			
+			//Autmatically update the ini file here.
+			if(sversion < 0.5) {
+				updateIni();
+			}
 		}
 		catch(IOException ex) { }
 		
 	}
 
-	private void registerEvents()
-	{
+	private void registerEvents() {
 		PluginManager pm = getServer().getPluginManager();
-		pm.registerEvent(Event.Type.ENTITY_DEATH, entityListener, Event.Priority.Normal, this);
-		pm.registerEvent(Event.Type.BLOCK_BREAK, new CdBlockListener(this), Event.Priority.Monitor, this);
-		pm.registerEvent(Event.Type.BLOCK_PISTON_EXTEND, new CdBlockListener(this), Event.Priority.Monitor, this);
-		pm.registerEvent(Event.Type.BLOCK_PISTON_RETRACT, new CdBlockListener(this), Event.Priority.Monitor, this);
+		CdBlockListener bl = new CdBlockListener(this);
+		pm.registerEvent(Event.Type.ENTITY_DEATH, entityListener, Event.Priority.Highest, this);
+		pm.registerEvent(Event.Type.BLOCK_BREAK, bl, Event.Priority.Monitor, this);
+		pm.registerEvent(Event.Type.BLOCK_PISTON_EXTEND, bl, Event.Priority.Monitor, this);
+		pm.registerEvent(Event.Type.BLOCK_PISTON_RETRACT, bl, Event.Priority.Monitor, this);
+		if(ChestLoot) {
+			pm.registerEvent(Event.Type.BLOCK_DAMAGE, bl, Event.Priority.Monitor, this);
+		}
 	}
     
     private void setupPermissions() {
@@ -158,5 +169,49 @@ public class ChestDeath extends JavaPlugin
             return player.hasPermission(node);
         }
     }
+    
+    private void updateIni() {
+		try {
+			BufferedWriter outChannel = new BufferedWriter(new FileWriter(configFile));
+			outChannel.write("#This is the main DeadMansChest config file\n" +
+					"#Death Message must be true for the death message String to work!\n" +
+					"#ChestDeleteInterval is in seconds.\n" +
+					"\n" +
+					"# Should we lock chests with LWC\n" +
+					"LWCEnabled=" + LWC_Enabled + "\n" +
+					"#Should the glowstone, chest and sign drop their respective items when mined?\n" +
+					"MineableDrops=" + mineabledrops + "\n" +
+					"#Should we build a glowstone tower\n" +
+					"BeaconEnabled=" + Sign_BeaconEnabled + "\n" +
+					"#And how high? (yes, this option is now working!)\n" +
+					"BeaconHeight=" + Sign_BeaconHeight + "\n" +
+					"#Should the beacon replace water/lava blocks as well or just air blocks?\n" +
+					"BeaconReplacesLiquid=" + LiquidReplace + "\n" +
+					"#Should we show a death message?\n" +
+					"DeathMessage=" + deathMessage + "\n" +
+					"#Put a sign on the chest with the player name?\n" +
+					"SignOnChest=" + SignOnChest + "\n" +
+					"#If we are using LWC to lock the chest should it be a private lock or a public lock?\n" +
+					"LWCPrivateDefault=" + LWC_PrivateDefault + "\n" +
+					"#If death messages are enabled the string to display.\n" +
+					"DeathMessageString=" + deathMessageString + "\n" +
+					"#How long before the chest disappears and the items spill out in seconds.\n" +
+					"ChestDeleteInterval=" + ChestDeleteInterval + "\n" +
+					"#CHANGED FROM ORIGINAL!!!! Should we drop any items normally that don't fit into the chest, or just remove them from the world.\n" +
+					"DropsEnabled=" + drops + "\n" +
+					"#Should we delete the chests after a certain time frame?\n" +
+					"ChestDeleteIntervalEnabled=" + ChestDeleteIntervalEnabled + "\n" +
+					"#Should players be allowed to loot death chests when they sneak click on one?\n" +
+					"# Players can only loot their own chests if LWC protection is set to private \n" +
+					"# or to loot any chest with lwc they need the deadmanschest.loot permission node.\n" +
+					"ChestLoot=" + ChestLoot + "\n\n" +
+					"#Do not change anything below this line unless you know what you are doing!\n" +
+					"version = " + version );
+			outChannel.close();
+		} catch (Exception e) {
+			System.out.println("[DeadMansChest] - file creation failed, using defaults.");
+		}
+		
+	}
 
 }

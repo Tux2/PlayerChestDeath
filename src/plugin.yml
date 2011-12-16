@@ -1,6 +1,6 @@
 name: DeadMansChest
 main: com.wesnc.playerchestdeath.ChestDeath
-version: 0.4
+version: 0.5
 softdepend: [LWC]
 
 # SuperPerms data
@@ -14,12 +14,14 @@ permissions:
             deadmanschest.message: true
             deadmanschest.lock: true
             deadmanschest.beacon: true
+            deadmanschest.doublechest: true
     deadmanschest.admin:
         default: op
         description: Gives access to all options, including persistent chests.
         children:
             deadmanschest.player: true
             deadmanschest.nodelete: true
+            deadmanschest.loot: true
     deadmanschest.chest:
         description: Allows you to have a death chest.
         default: true
@@ -37,4 +39,10 @@ permissions:
         default: true
     deadmanschest.nodelete:
         description: Exempts this player's chests from being deleted.
+        default: op
+    deadmanschest.loot:
+        description: Allows you to loot a locked chest.
+        default: op
+    deadmanschest.doublechest:
+        description: Allows the player to have a double death chest.
         default: op
