@@ -5,9 +5,11 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Chest;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDamageEvent;
-import org.bukkit.event.block.BlockListener;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.inventory.ItemStack;
@@ -15,27 +17,44 @@ import org.bukkit.inventory.PlayerInventory;
 
 import com.griefcraft.model.Protection;
 
-public class CdBlockListener extends BlockListener {
+public class CdBlockListener implements Listener {
 	
 	ChestDeath plugin;
 	
 	public CdBlockListener(ChestDeath plugin) {
 		this.plugin = plugin;
 	}
-	
+
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onBlockBreak(BlockBreakEvent event) {
 		if(!event.isCancelled()) {
 			if(plugin.nodropblocks.contains(event.getBlock())) {
 				Block block = event.getBlock();
 				if(!plugin.mineabledrops) {
 					event.setCancelled(true);
-					block.setType(Material.AIR);
+					if(block.getType() == Material.CHEST) {
+						//This fixes the sign bug and removes the glowstone tower
+						//as well.
+						if(plugin.deathchests.containsKey(block)) {
+							RemoveChest dcstuff = plugin.deathchests.get(block);
+							dcstuff.removeTheChest();
+							//cancel the removal task.
+							if(dcstuff.getTaskID() != -1) {
+								plugin.getServer().getScheduler().cancelTask(dcstuff.getTaskID());
+							}
+						}else {
+							block.setType(Material.AIR);
+						}
+					}else {
+						block.setType(Material.AIR);
+					}
 				}
 				plugin.nodropblocks.remove(block);
 			}
 		}
 	}
-	
+
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onBlockPistonRetract(BlockPistonRetractEvent event) {
 		if(!event.isCancelled()) {
 			if(plugin.nodropblocks.contains(event.getBlock()) && !plugin.mineabledrops) {
@@ -44,6 +63,7 @@ public class CdBlockListener extends BlockListener {
 		}
 	}
 
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onBlockPistonExtend(BlockPistonExtendEvent event) {
 		if(!event.isCancelled()) {
 			if(plugin.nodropblocks.contains(event.getBlock()) && !plugin.mineabledrops) {
@@ -52,15 +72,19 @@ public class CdBlockListener extends BlockListener {
 		}
 	}
 	
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onBlockDamage (BlockDamageEvent event) {
+		if(!plugin.ChestLoot) {
+			return;
+		}
 		Player player = event.getPlayer();
 		Block chestblock = event.getBlock();
 		if(player.isSneaking() && chestblock.getType() == Material.CHEST) {
 			if(plugin.deathchests.containsKey(event.getBlock())) {
 				if(plugin.LWC_Enabled && plugin.lwc != null) {
 					Protection protection = plugin.lwc.findProtection(chestblock);
-					if(protection.getType() == com.griefcraft.model.ProtectionTypes.PRIVATE) {
-						if(protection.isOwner(player) || plugin.hasPermissions(player, "deadmanschest.loot")) {
+					if(protection.getType() == com.griefcraft.model.Protection.Type.PRIVATE) {
+						if(protection.isOwner(player) || player.hasPermission("deadmanschest.loot")) {
 							lootChest(player, chestblock);
 						}
 					}else {

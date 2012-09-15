@@ -10,24 +10,26 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
-import org.bukkit.event.entity.EntityListener;
 import org.bukkit.inventory.ItemStack;
 
-public class EntLis extends EntityListener
-{
+public class EntLis implements Listener {
 	public ChestDeath plugin;
 	
 	public EntLis(ChestDeath instance) {
 		plugin = instance;
 	}
 	
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onEntityDeath(EntityDeathEvent event) {
 		Entity entity = event.getEntity();
 		
 		if(entity instanceof Player) {
 			Player player = (Player)entity;
-			if(plugin.hasPermissions(player, "deadmanschest.chest")) {
+			if(player.hasPermission("deadmanschest.chest")) {
 				Location lastLoc = player.getLocation();
 				Block block = lastLoc.getBlock();
 				//See if the block we are on is a block we can safely write over...
@@ -57,7 +59,7 @@ public class EntLis extends EntityListener
 					}
 				}
 				//The player is carrying too many items to fit in one chest. Let's make it a double chest (if they have permission).
-				if(j == 27 && plugin.hasPermissions(player, "deadmanschest.doublechest")) {
+				if(j == 27 && player.hasPermission("deadmanschest.doublechest")) {
 					BlockFace[] direction = {BlockFace.EAST, BlockFace.WEST, BlockFace.NORTH, BlockFace.SOUTH};
 					boolean noroom = true;
 					for(int y = 0; y < direction.length && noroom; y++) {
@@ -81,11 +83,11 @@ public class EntLis extends EntityListener
 					}
 				}
 				
-				if(!this.plugin.drops && !plugin.hasPermissions(player, "deadmanschest.drops"))	{
+				if(!this.plugin.drops && !player.hasPermission("deadmanschest.drops"))	{
 					event.getDrops().clear();
 				}
 				
-				if(this.plugin.deathMessage && plugin.hasPermissions(player, "deadmanschest.message")) {
+				if(this.plugin.deathMessage && player.hasPermission("deadmanschest.message")) {
 					this.plugin.getServer().broadcastMessage(ChatColor.RED + player.getDisplayName() + ChatColor.WHITE + " " + this.plugin.deathMessageString);
 				}
 

@@ -1,6 +1,6 @@
 name: DeadMansChest
 main: com.wesnc.playerchestdeath.ChestDeath
-version: 0.5
+version: 0.7
 softdepend: [LWC]
 
 # SuperPerms data

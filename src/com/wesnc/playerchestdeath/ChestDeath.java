@@ -13,15 +13,11 @@ import java.util.logging.Logger;
 
 import org.bukkit.Material;
 import org.bukkit.block.Block;
-import org.bukkit.entity.Player;
-import org.bukkit.event.Event;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.griefcraft.lwc.*;
-import com.nijiko.permissions.PermissionHandler;
-import com.nijikokun.bukkit.Permissions.Permissions;
 
 public class ChestDeath extends JavaPlugin
 {
@@ -59,8 +55,6 @@ public class ChestDeath extends JavaPlugin
 	public boolean ChestDeleteIntervalEnabled = true;
 	public boolean ChestLoot = false;
 	public String version = "0.5";
-
-	private static PermissionHandler Permissions;
 	
 	public ChestDeath() {
 
@@ -84,7 +78,6 @@ public class ChestDeath extends JavaPlugin
 
 	@Override
 	public void onEnable() {
-		setupPermissions();
 		Plugin lwcPlugin = getServer().getPluginManager().getPlugin("LWC");
 		if(lwcPlugin != null) {
 			System.out.println("[DeadMansChest] LWC plugin found!");
@@ -142,33 +135,9 @@ public class ChestDeath extends JavaPlugin
 	private void registerEvents() {
 		PluginManager pm = getServer().getPluginManager();
 		CdBlockListener bl = new CdBlockListener(this);
-		pm.registerEvent(Event.Type.ENTITY_DEATH, entityListener, Event.Priority.Highest, this);
-		pm.registerEvent(Event.Type.BLOCK_BREAK, bl, Event.Priority.Monitor, this);
-		pm.registerEvent(Event.Type.BLOCK_PISTON_EXTEND, bl, Event.Priority.Monitor, this);
-		pm.registerEvent(Event.Type.BLOCK_PISTON_RETRACT, bl, Event.Priority.Monitor, this);
-		if(ChestLoot) {
-			pm.registerEvent(Event.Type.BLOCK_DAMAGE, bl, Event.Priority.Monitor, this);
-		}
+		pm.registerEvents(entityListener, this);
+		pm.registerEvents(bl, this);
 	}
-    
-    private void setupPermissions() {
-        Plugin permissions = this.getServer().getPluginManager().getPlugin("Permissions");
-
-        if (Permissions == null) {
-            if (permissions != null) {
-                Permissions = ((Permissions)permissions).getHandler();
-            } else {
-            }
-        }
-    }
-    
-    public boolean hasPermissions(Player player, String node) {
-        if (Permissions != null) {
-            return Permissions.has(player, node);
-        } else {
-            return player.hasPermission(node);
-        }
-    }
     
     private void updateIni() {
 		try {

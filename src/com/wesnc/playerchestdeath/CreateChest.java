@@ -12,6 +12,8 @@ import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import com.griefcraft.model.Protection.Type;
+
 public class CreateChest implements Runnable {
 	
 	ChestDeath plugin;
@@ -67,9 +69,9 @@ public class CreateChest implements Runnable {
 			}
 		}
 		
-		if(plugin.LWC_Enabled && plugin.lwc != null && plugin.hasPermissions(player, "deadmanschest.lock")) {
+		if(plugin.LWC_Enabled && plugin.lwc != null && player.hasPermission("deadmanschest.lock")) {
 			int blockId = chest.getTypeId();
-			int type = 0;
+			Type type = Type.PUBLIC;
 			String world = chest.getWorld().getName();
 			String owner = player.getName();
 			String password = "";
@@ -78,9 +80,9 @@ public class CreateChest implements Runnable {
 			int z = chest.getZ();
 			
 			if(this.plugin.LWC_PrivateDefault) {
-				type = com.griefcraft.model.ProtectionTypes.PRIVATE;
+				type = com.griefcraft.model.Protection.Type.PRIVATE;
 			}else {
-				type = com.griefcraft.model.ProtectionTypes.PUBLIC;
+				type = com.griefcraft.model.Protection.Type.PUBLIC;
 			}
 			plugin.lwc.getPhysicalDatabase().registerProtection(blockId, type, world, owner, password, x, y, z);
 			//protectionblock = chestblock;
@@ -146,7 +148,7 @@ public class CreateChest implements Runnable {
 			}
 		}
 		
-		if(this.plugin.Sign_BeaconEnabled && plugin.hasPermissions(player, "deadmanschest.beacon"))	{
+		if(this.plugin.Sign_BeaconEnabled && player.hasPermission("deadmanschest.beacon"))	{
 			int height = this.plugin.Sign_BeaconHeight;
 			Location chestLocation1 = chestblock.getLocation();
 			
@@ -174,7 +176,7 @@ public class CreateChest implements Runnable {
 			}
 		}
 		
-		if(this.plugin.ChestDeleteIntervalEnabled && !plugin.hasPermissions(player, "deadmanschest.nodelete")) {
+		if(this.plugin.ChestDeleteIntervalEnabled && !player.hasPermission("deadmanschest.nodelete")) {
 			int delay = this.plugin.ChestDeleteInterval*20;
 			RemoveChest rc = new RemoveChest(plugin, changedblocks, chestblock, chestblock2);
 			int taskid = this.plugin.getServer().getScheduler().scheduleSyncDelayedTask(this.plugin, rc, delay);
