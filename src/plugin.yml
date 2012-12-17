@@ -1,13 +1,13 @@
 name: DeadMansChest
 main: com.wesnc.playerchestdeath.ChestDeath
-version: 0.7
+version: 0.8
 softdepend: [LWC]
 
 # SuperPerms data
 permissions:
     deadmanschest.player:
         default: true
-        description: Gives access to all options, except for persistent chests.
+        description: Gives access to all options, except for persistent chests and free chests.
         children:
             deadmanschest.chest: true
             deadmanschest.drops: true
@@ -17,11 +17,12 @@ permissions:
             deadmanschest.doublechest: true
     deadmanschest.admin:
         default: op
-        description: Gives access to all options, including persistent chests.
+        description: Gives access to all options, including persistent chests and free chests.
         children:
             deadmanschest.player: true
             deadmanschest.nodelete: true
             deadmanschest.loot: true
+            deadmanschest.freechest: true
     deadmanschest.chest:
         description: Allows you to have a death chest.
         default: true
@@ -45,4 +46,7 @@ permissions:
         default: op
     deadmanschest.doublechest:
         description: Allows the player to have a double death chest.
+        default: op
+    deadmanschest.freechest:
+        description: If the player has this permission node then they don't need chests in their inventory to chest their items.
         default: op

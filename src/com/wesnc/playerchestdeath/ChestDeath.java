@@ -54,6 +54,7 @@ public class ChestDeath extends JavaPlugin
 	public int ChestDeleteInterval = 80;
 	public boolean ChestDeleteIntervalEnabled = true;
 	public boolean ChestLoot = false;
+	public boolean needChestinInventory = false;
 	public String version = "0.5";
 	
 	public ChestDeath() {
@@ -100,6 +101,7 @@ public class ChestDeath extends JavaPlugin
 			FileInputStream in = new FileInputStream(configFile);
 			prop.load(in);
 			
+			needChestinInventory = Boolean.parseBoolean(prop.getProperty("NeedChestInInventory", "false"));
 			drops = Boolean.parseBoolean(prop.getProperty("DropsEnabled", "true"));
 			deathMessage = Boolean.parseBoolean(prop.getProperty("DeathMessage", "true"));
 			deathMessageString = prop.getProperty("DeathMessageString", "died. Deploying death chest.");
@@ -124,7 +126,7 @@ public class ChestDeath extends JavaPlugin
 			double sversion = Double.parseDouble(prop.getProperty("version", "0.4"));
 			
 			//Autmatically update the ini file here.
-			if(sversion < 0.5) {
+			if(sversion < 0.8) {
 				updateIni();
 			}
 		}
@@ -146,13 +148,15 @@ public class ChestDeath extends JavaPlugin
 					"#Death Message must be true for the death message String to work!\n" +
 					"#ChestDeleteInterval is in seconds.\n" +
 					"\n" +
+					"#NEW! Do players need a chest in their inventory to get a death chest?\n" +
+					"NeedChestInInventory=" + needChestinInventory + "\n" +
 					"# Should we lock chests with LWC\n" +
 					"LWCEnabled=" + LWC_Enabled + "\n" +
 					"#Should the glowstone, chest and sign drop their respective items when mined?\n" +
 					"MineableDrops=" + mineabledrops + "\n" +
 					"#Should we build a glowstone tower\n" +
 					"BeaconEnabled=" + Sign_BeaconEnabled + "\n" +
-					"#And how high? (yes, this option is now working!)\n" +
+					"#And how high?\n" +
 					"BeaconHeight=" + Sign_BeaconHeight + "\n" +
 					"#Should the beacon replace water/lava blocks as well or just air blocks?\n" +
 					"BeaconReplacesLiquid=" + LiquidReplace + "\n" +
@@ -166,7 +170,7 @@ public class ChestDeath extends JavaPlugin
 					"DeathMessageString=" + deathMessageString + "\n" +
 					"#How long before the chest disappears and the items spill out in seconds.\n" +
 					"ChestDeleteInterval=" + ChestDeleteInterval + "\n" +
-					"#CHANGED FROM ORIGINAL!!!! Should we drop any items normally that don't fit into the chest, or just remove them from the world.\n" +
+					"#Should we drop any items normally that don't fit into the chest, or just remove them from the world.\n" +
 					"DropsEnabled=" + drops + "\n" +
 					"#Should we delete the chests after a certain time frame?\n" +
 					"ChestDeleteIntervalEnabled=" + ChestDeleteIntervalEnabled + "\n" +

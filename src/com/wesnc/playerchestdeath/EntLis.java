@@ -48,6 +48,57 @@ public class EntLis implements Listener {
 				List<ItemStack> items = event.getDrops();
 				LinkedList<ItemStack> addeditems = new LinkedList<ItemStack>();
 				int i;
+				//Code to check if the player's inventory is empty.
+				boolean isempty = true;
+				for(i = 0; i < items.size() && isempty; i++) {
+					ItemStack item = items.get(i);
+					if(item != null && item.getType() != Material.AIR) {
+						isempty = false;
+					}
+				}
+				if(isempty) {
+					return;
+				}
+				
+				//Check to see if the player has chests in his inventory
+				//if he doesn't have the free chest permission.
+				boolean needschests = false;
+				int chestcount = 0;
+				if(plugin.needChestinInventory && !player.hasPermission("deadmanschest.freechest")) {
+					needschests = true;
+					for(i = 0; i < items.size(); i++) {
+						ItemStack item = items.get(i);
+						if(item != null && item.getType() == Material.CHEST) {
+							if(chestcount == 0) {
+								chestcount += item.getAmount();
+								if(item.getAmount() > 2) {
+									item.setAmount(item.getAmount() - 2);
+								}else {
+									items.remove(i);
+									//hack to get it to point in correct place.
+									i--;
+								}
+							}else if(chestcount == 1) {
+								chestcount += item.getAmount();
+								if(item.getAmount() > 1) {
+									item.setAmount(item.getAmount() - 1);
+								}else {
+									items.remove(i);
+									//hack to get it to point in correct place.
+									i--;
+								}
+							}else {
+								chestcount += item.getAmount();
+							}
+						}
+					}
+					//If the chest count is still zero, the player doesn't have
+					//any chests...
+					if(chestcount == 0) {
+						return;
+					}
+				}
+				
 				for(i = 0; i < items.size() && j < 27; i++)	{
 					ItemStack item = items.get(i);
 					if(item != null && item.getType() != Material.AIR) {
@@ -59,7 +110,7 @@ public class EntLis implements Listener {
 					}
 				}
 				//The player is carrying too many items to fit in one chest. Let's make it a double chest (if they have permission).
-				if(j == 27 && player.hasPermission("deadmanschest.doublechest")) {
+				if(j == 27 && player.hasPermission("deadmanschest.doublechest") && (!needschests || (needschests && chestcount > 1))) {
 					BlockFace[] direction = {BlockFace.EAST, BlockFace.WEST, BlockFace.NORTH, BlockFace.SOUTH};
 					boolean noroom = true;
 					for(int y = 0; y < direction.length && noroom; y++) {
@@ -81,6 +132,10 @@ public class EntLis implements Listener {
 							doublechest = true;
 						}
 					}
+				}else if(needschests && chestcount > 1) {
+					//The player didn't have enough items to be in a double chest, 
+					//so let's add the other chest if there is room.
+					addeditems.add(new ItemStack(Material.CHEST, 1));
 				}
 				
 				if(!this.plugin.drops && !player.hasPermission("deadmanschest.drops"))	{
