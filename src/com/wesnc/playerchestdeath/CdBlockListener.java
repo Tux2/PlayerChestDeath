@@ -4,6 +4,7 @@ import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Chest;
+import org.bukkit.block.DoubleChest;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -12,6 +13,9 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDamageEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
@@ -33,23 +37,11 @@ public class CdBlockListener implements Listener {
 				if(!plugin.mineabledrops) {
 					event.setCancelled(true);
 					if(block.getType() == Material.CHEST) {
-						//This fixes the sign bug and removes the glowstone tower
-						//as well.
-						if(plugin.deathchests.containsKey(block)) {
-							RemoveChest dcstuff = plugin.deathchests.get(block);
-							dcstuff.removeTheChest();
-							//cancel the removal task.
-							if(dcstuff.getTaskID() != -1) {
-								plugin.getServer().getScheduler().cancelTask(dcstuff.getTaskID());
-							}
-						}else {
-							block.setType(Material.AIR);
-						}
+						deleteChest(block);
 					}else {
 						block.setType(Material.AIR);
 					}
 				}
-				plugin.nodropblocks.remove(block);
 			}
 		}
 	}
@@ -96,6 +88,68 @@ public class CdBlockListener implements Listener {
 			}
 		}
 	}
+
+    @EventHandler
+    public void onCloseInventory (InventoryCloseEvent event) {
+        Inventory inventory = event.getInventory();
+        if (inventory.getHolder() instanceof Chest) {
+            Chest chest = (Chest) inventory.getHolder();
+
+            if (isEmpty(inventory)) {
+                deleteDeathChest(chest);
+            }
+        } else if (inventory.getHolder() instanceof DoubleChest) {
+            DoubleChest doubleChest = (DoubleChest) inventory.getHolder();
+            Chest right = (Chest) doubleChest.getRightSide();
+            Chest left = (Chest) doubleChest.getLeftSide();
+
+            if (isEmpty(inventory)) {
+                deleteDeathChest(right);
+                deleteDeathChest(left);
+            }
+        }
+    }
+
+    private void deleteDeathChest(Chest chest) {
+        if(plugin.nodropblocks.contains(chest.getBlock())) {
+            Block block = chest.getBlock();
+
+            if(! plugin.mineabledrops) {
+                if(block.getType() == Material.CHEST) {
+                    deleteChest(block);
+                }else {
+                    block.setType(Material.AIR);
+                }
+            }
+        }
+    }
+
+    private void deleteChest(Block block) {
+        //This fixes the sign bug and removes the glowstone tower
+        //as well.
+        if(plugin.deathchests.containsKey(block)) {
+            RemoveChest dcstuff = plugin.deathchests.get(block);
+            dcstuff.removeTheChest();
+            //cancel the removal task.
+            if(dcstuff.getTaskID() != -1) {
+                plugin.getServer().getScheduler().cancelTask(dcstuff.getTaskID());
+            }
+        } else {
+            block.setType(Material.AIR);
+        }
+
+        plugin.nodropblocks.remove(block);
+    }
+
+    private Boolean isEmpty(Inventory inventory) {
+        for (ItemStack stack : inventory.getContents()) {
+            if (stack != null) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 	
 	private void lootChest(Player player, Block chestblock) {
 		PlayerInventory pi = player.getInventory();
